@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Résumé IA — Summarizer</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.0.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f6f3;
+      --surface: #ffffff;
+      --surface2: #f0efe9;
+      --border: rgba(0,0,0,0.12);
+      --border2: rgba(0,0,0,0.22);
+      --text: #1a1a18;
+      --text2: #6b6b67;
+      --purple: #534AB7;
+      --purple-light: #EEEDFE;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a18;
+        --surface: #242422;
+        --surface2: #2e2e2b;
+        --border: rgba(255,255,255,0.1);
+        --border2: rgba(255,255,255,0.2);
+        --text: #f0efe9;
+        --text2: #9a9a94;
+        --purple: #7F77DD;
+        --purple-light: #26215C;
+      }
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    header .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--purple-light);
+      color: var(--purple);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    header p {
+      font-size: 15px;
+      color: var(--text2);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 660px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .section-label i { font-size: 14px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface2);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 1rem;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    /* Text area */
+    #text-input {
+      width: 100%;
+      min-height: 180px;
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      font-family: inherit;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      color: var(--text);
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    #text-input:focus { border-color: var(--purple); }
+    #text-input::placeholder { color: var(--text2); }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 1.5px dashed var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      background: var(--surface2);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .drop-zone.drag-over { border-color: var(--purple); background: var(--purple-light); }
+    .drop-zone i { font-size: 36px; color: var(--text2); display: block; margin-bottom: 12px; }
+    .drop-zone p { font-size: 14px; color: var(--text2); margin-top: 4px; }
+    .drop-zone p strong { color: var(--text); font-weight: 500; }
+
+    .file-info {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface2);
+      margin-top: 10px;
+    }
+
+    .file-info i { font-size: 20px; color: var(--purple); }
+    .file-info .fname { font-size: 14px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-info .fsize { font-size: 12px; color: var(--text2); }
+    .file-info button { background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; }
+
+    /* Options */
+    .options-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .opt-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+    .opt-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
+
+    select {
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    select:focus { border-color: var(--purple); }
+
+    /* Button */
+    #summarize-btn {
+      width: 100%;
+      max-width: 660px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 500;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--purple);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.15s, transform 0.1s;
+      margin-bottom: 1rem;
+    }
+
+    #summarize-btn:hover { opacity: 0.9; }
+    #summarize-btn:active { transform: scale(0.99); }
+    #summarize-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* Loading */
+    .loading-bar {
+      display: none;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 1rem;
+      overflow: hidden;
+      width: 100%;
+      max-width: 660px;
+    }
+
+    .loading-bar-inner {
+      height: 100%;
+      background: var(--purple);
+      border-radius: 2px;
+      animation: progress 1.8s ease-in-out infinite;
+    }
+
+    @keyframes progress { 0%{width:0%;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0%;margin-left:100%} }
+
+    /* Result */
+    .result-card {
+      display: none;
+      width: 100%;
+      max-width: 660px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 12px;
+      border-bottom: 0.5px solid var(--border);
+    }
+
+    .result-header span {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text2);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .result-header i { font-size: 16px; color: var(--purple); }
+
+    .copy-btn {
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 0.5px solid var(--border);
+      background: none;
+      color: var(--text2);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s;
+    }
+
+    .copy-btn:hover { background: var(--surface2); }
+
+    #summary-text {
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 1.25rem;
+    }
+
+    .stat {
+      flex: 1;
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      text-align: center;
+    }
+
+    .stat .val { font-size: 18px; font-weight: 600; color: var(--text); }
+    .stat .lbl { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    footer {
+      margin-top: 3rem;
+      font-size: 12px;
+      color: var(--text2);
+      text-align: center;
+    }
+
+    footer a { color: var(--purple); text-decoration: none; }
+
+    @media (max-width: 480px) {
+      header h1 { font-size: 1.5rem; }
+      .stats-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="badge"><i class="ti ti-sparkles"></i> Propulsé par Claude AI</div>
+    <h1>Résumé intelligent</h1>
+    <p>Collez votre texte ou déposez un fichier — l'IA fait le reste.</p>
+  </header>
+
+  <!-- Input card -->
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('text')" id="tab-text">
+        <i class="ti ti-text-size"></i> Texte libre
+      </button>
+      <button class="tab" onclick="switchTab('file')" id="tab-file">
+        <i class="ti ti-file-upload"></i> Fichier
+      </button>
+    </div>
+
+    <div id="panel-text">
+      <div class="section-label"><i class="ti ti-edit"></i> Votre texte</div>
+      <textarea id="text-input" placeholder="Collez ici le texte à résumer… article, email, rapport, compte-rendu, etc." oninput="onTextChange()"></textarea>
+      <p style="font-size:12px; color:var(--text2); margin-top:6px;" id="char-count">0 mots</p>
+    </div>
+
+    <div id="panel-file" style="display:none;">
+      <div class="section-label"><i class="ti ti-upload"></i> Votre fichier</div>
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <i class="ti ti-file-upload"></i>
+        <p><strong>Déposez un fichier ici</strong> ou cliquez pour choisir</p>
+        <p style="font-size:12px; margin-top:4px;">PDF, TXT, MD — jusqu'à 10 Mo</p>
+      </div>
+      <input type="file" id="file-input" accept=".pdf,.txt,.md" style="display:none">
+      <div class="file-info" id="file-info">
+        <i class="ti ti-file-text"></i>
+        <span class="fname" id="fname"></span>
+        <span class="fsize" id="fsize"></span>
+        <button onclick="removeFile()" aria-label="Supprimer"><i class="ti ti-x" style="font-size:16px"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Options card -->
+  <div class="card">
+    <div class="section-label"><i class="ti ti-adjustments-horizontal"></i> Options</div>
+    <div class="options-row">
+      <div class="opt-group">
+        <label for="style-sel">Style de résumé</label>
+        <select id="style-sel">
+          <option value="concis">Concis (3–5 phrases)</option>
+          <option value="detaille">Détaillé (paragraphe complet)</option>
+          <option value="puces">Points clés (liste à puces)</option>
+          <option value="academique">Académique</option>
+        </select>
+      </div>
+      <div class="opt-group">
+        <label for="lang-sel">Langue de sortie</label>
+        <select id="lang-sel">
+          <option value="français">Français</option>
+          <option value="anglais">Anglais</option>
+          <option value="espagnol">Espagnol</option>
+          <option value="allemand">Allemand</option>
+          <option value="arabe">Arabe</option>
+          <option value="portugais">Portugais</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <button id="summarize-btn" onclick="summarize()" disabled>
+    <i class="ti ti-sparkles"></i> Résumer
+  </button>
+
+  <div class="loading-bar" id="loading-bar"><div class="loading-bar-inner"></div></div>
+
+  <div class="result-card" id="result-card">
+    <div class="result-header">
+      <span><i class="ti ti-sparkles"></i> Résumé généré</span>
+      <button class="copy-btn" onclick="copyResult()"><i class="ti ti-copy" style="font-size:14px"></i> Copier</button>
+    </div>
+    <div id="summary-text"></div>
+    <div class="stats-row">
+      <div class="stat"><div class="val" id="stat-words">—</div><div class="lbl">mots dans le texte</div></div>
+      <div class="stat"><div class="val" id="stat-sum">—</div><div class="lbl">mots résumé</div></div>
+      <div class="stat"><div class="val" id="stat-pct">—</div><div class="lbl">compression</div></div>
+    </div>
+  </div>
+
+  <footer>
+    Créé avec <a href="https://claude.ai" target="_blank">Claude AI</a> — hébergé sur GitHub Pages
+  </footer>
+
+<script>
+  let fileContent = '';
+  let fileIsPdf = false;
+  let currentTab = 'text';
+
+  function switchTab(tab) {
+    currentTab = tab;
+    document.getElementById('panel-text').style.display = tab === 'text' ? 'block' : 'none';
+    document.getElementById('panel-file').style.display = tab === 'file' ? 'block' : 'none';
+    document.getElementById('tab-text').classList.toggle('active', tab === 'text');
+    document.getElementById('tab-file').classList.toggle('active', tab === 'file');
+    updateBtn();
+  }
+
+  function onTextChange() {
+    const words = document.getElementById('text-input').value.trim().split(/\s+/).filter(Boolean).length;
+    document.getElementById('char-count').textContent = words + ' mot' + (words !== 1 ? 's' : '');
+    updateBtn();
+  }
+
+  function updateBtn() {
+    const hasText = currentTab === 'text' && document.getElementById('text-input').value.trim().length > 20;
+    const hasFile = currentTab === 'file' && fileContent.length > 0;
+    document.getElementById('summarize-btn').disabled = !(hasText || hasFile);
+  }
+
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+  document.getElementById('file-input').addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+
+  function handleFile(file) {
+    if (file.size > 10 * 1024 * 1024) { alert('Fichier trop volumineux (max 10 Mo).'); return; }
+    document.getElementById('fname').textContent = file.name;
+    const kb = file.size / 1024;
+    document.getElementById('fsize').textContent = kb < 1024 ? Math.round(kb) + ' Ko' : (kb / 1024).toFixed(1) + ' Mo';
+    document.getElementById('file-info').style.display = 'flex';
+    document.getElementById('result-card').style.display = 'none';
+
+    const reader = new FileReader();
+    fileIsPdf = file.name.endsWith('.pdf');
+    reader.onload = e => { fileContent = e.target.result; updateBtn(); };
+    fileIsPdf ? reader.readAsDataURL(file) : reader.readAsText(file, 'UTF-8');
+  }
+
+  function removeFile() {
+    fileContent = '';
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-info').style.display = 'none';
+    document.getElementById('result-card').style.display = 'none';
+    updateBtn();
+  }
+
+  async function summarize() {
+    const styleMap = {
+      concis: 'Écris un résumé très concis en 3 à 5 phrases.',
+      detaille: 'Écris un résumé détaillé en un ou deux paragraphes complets.',
+      puces: 'Présente les idées principales sous forme de liste à puces (utilise des tirets -).',
+      academique: 'Rédige un résumé de style académique, objectif et structuré.'
+    };
+
+    const style = document.getElementById('style-sel').value;
+    const lang = document.getElementById('lang-sel').value;
+    const btn = document.getElementById('summarize-btn');
+    const loadBar = document.getElementById('loading-bar');
+    const resultCard = document.getElementById('result-card');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2"></i> Analyse en cours…';
+    loadBar.style.display = 'block';
+    resultCard.style.display = 'none';
+
+    let messages;
+    let originalWordCount;
+
+    if (currentTab === 'text') {
+      const text = document.getElementById('text-input').value;
+      originalWordCount = text.trim().split(/\s+/).filter(Boolean).length;
+      messages = [{ role: 'user', content: `Voici le texte à résumer :\n\n${text}\n\n${styleMap[style]} Réponds en ${lang}.` }];
+    } else if (fileIsPdf) {
+      const base64Data = fileContent.split(',')[1];
+      originalWordCount = 0;
+      messages = [{ role: 'user', content: [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
+        { type: 'text', text: `${styleMap[style]} Réponds en ${lang}.` }
+      ]}];
+    } else {
+      originalWordCount = fileContent.trim().split(/\s+/).filter(Boolean).length;
+      messages = [{ role: 'user', content: `Voici le contenu du fichier :\n\n${fileContent.slice(0, 15000)}\n\n${styleMap[style]} Réponds en ${lang}.` }];
+    }
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages })
+      });
+      const data = await res.json();
+      const text = data.content.map(b => b.text || '').join('');
+      document.getElementById('summary-text').textContent = text;
+
+      const sumWords = text.trim().split(/\s+/).filter(Boolean).length;
+      const pct = originalWordCount > 0 ? Math.round((1 - sumWords / originalWordCount) * 100) : '—';
+      document.getElementById('stat-words').textContent = originalWordCount > 0 ? originalWordCount.toLocaleString('fr-FR') : '—';
+      document.getElementById('stat-sum').textContent = sumWords.toLocaleString('fr-FR');
+      document.getElementById('stat-pct').textContent = typeof pct === 'number' && pct > 0 ? pct + '%' : '—';
+      resultCard.style.display = 'block';
+    } catch (err) {
+      document.getElementById('summary-text').textContent = "Une erreur s'est produite. Veuillez réessayer.";
+      resultCard.style.display = 'block';
+    }
+
+    loadBar.style.display = 'none';
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-sparkles"></i> Résumer';
+  }
+
+  function copyResult() {
+    const text = document.getElementById('summary-text').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.innerHTML = '<i class="ti ti-check" style="font-size:14px"></i> Copié !';
+      setTimeout(() => { btn.innerHTML = '<i class="ti ti-copy" style="font-size:14px"></i> Copier'; }, 2000);
+    });
+  }
+</script>
+</body>
+</html>
