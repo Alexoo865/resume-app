@@ -321,9 +321,9 @@
 <body>
 
   <header>
-    <div class="badge"><i class="ti ti-sparkles"></i> Propulsé par Claude AI</div>
+    <div class="badge"><i class="ti ti-sparkles"></i> Gratuit & Sans API</div>
     <h1>Résumé intelligent</h1>
-    <p>Collez votre texte ou déposez un fichier — l'IA fait le reste.</p>
+    <p>Collez votre texte ou déposez un fichier — résumé instantané.</p>
   </header>
 
   <!-- Input card -->
@@ -339,7 +339,7 @@
 
     <div id="panel-text">
       <div class="section-label"><i class="ti ti-edit"></i> Votre texte</div>
-      <textarea id="text-input" placeholder="Collez ici le texte à résumer… article, email, rapport, compte-rendu, etc." oninput="onTextChange()"></textarea>
+      <textarea id="text-input" placeholder="Collez ici le texte à résumer… article, email, rapport, etc." oninput="onTextChange()"></textarea>
       <p style="font-size:12px; color:var(--text2); margin-top:6px;" id="char-count">0 mots</p>
     </div>
 
@@ -348,9 +348,9 @@
       <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
         <i class="ti ti-file-upload"></i>
         <p><strong>Déposez un fichier ici</strong> ou cliquez pour choisir</p>
-        <p style="font-size:12px; margin-top:4px;">PDF, TXT, MD — jusqu'à 10 Mo</p>
+        <p style="font-size:12px; margin-top:4px;">TXT, MD — jusqu'à 10 Mo</p>
       </div>
-      <input type="file" id="file-input" accept=".pdf,.txt,.md,.doc,.docx" style="display:none">
+      <input type="file" id="file-input" accept=".txt,.md" style="display:none">
       <div class="file-info" id="file-info">
         <i class="ti ti-file-text"></i>
         <span class="fname" id="fname"></span>
@@ -380,12 +380,12 @@
   </div>
 
   <footer>
-    Créé avec <a href="https://claude.ai" target="_blank">Claude AI</a> — hébergé sur GitHub Pages
+    Créé avec JavaScript & NLP — Aucune clé API nécessaire
   </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/string_score/0.1.22/string_score.min.js"></script>
 <script>
   let fileContent = '';
-  let fileIsPdf = false;
   let currentTab = 'text';
 
   function switchTab(tab) {
@@ -404,8 +404,8 @@
   }
 
   function updateBtn() {
-    const hasText = currentTab === 'text' && document.getElementById('text-input').value.trim().length > 20;
-    const hasFile = currentTab === 'file' && fileContent.length > 0;
+    const hasText = currentTab === 'text' && document.getElementById('text-input').value.trim().length > 50;
+    const hasFile = currentTab === 'file' && fileContent.length > 50;
     document.getElementById('summarize-btn').disabled = !(hasText || hasFile);
   }
 
@@ -424,9 +424,8 @@
     document.getElementById('result-card').style.display = 'none';
 
     const reader = new FileReader();
-    fileIsPdf = file.name.endsWith('.pdf');
     reader.onload = e => { fileContent = e.target.result; updateBtn(); };
-    fileIsPdf ? reader.readAsDataURL(file) : reader.readAsText(file, 'UTF-8');
+    reader.readAsText(file, 'UTF-8');
   }
 
   function removeFile() {
@@ -437,7 +436,25 @@
     updateBtn();
   }
 
-  async function summarize() {
+  function extractSentences(text) {
+    // Sépare le texte en phrases
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
+    return sentences.map(s => s.trim()).filter(s => s.length > 10);
+  }
+
+  function calculateScore(sentence, keywordList) {
+    let score = 0;
+    keywordList.forEach(keyword => {
+      if (sentence.toLowerCase().includes(keyword.toLowerCase())) {
+        score += 10;
+      }
+    });
+    // Bonus pour les phrases plus longues
+    score += Math.min(sentence.split(' ').length / 2, 5);
+    return score;
+  }
+
+  function summarize() {
     const btn = document.getElementById('summarize-btn');
     const loadBar = document.getElementById('loading-bar');
     const resultCard = document.getElementById('result-card');
@@ -447,51 +464,67 @@
     loadBar.style.display = 'block';
     resultCard.style.display = 'none';
 
-    let messages;
-    let originalWordCount;
-
+    let text;
     if (currentTab === 'text') {
-      const text = document.getElementById('text-input').value;
-      originalWordCount = text.trim().split(/\s+/).filter(Boolean).length;
-      messages = [{ role: 'user', content: `Fais un résumé concis et intelligent de ce texte en français:\n\n${text}` }];
-    } else if (fileIsPdf) {
-      const base64Data = fileContent.split(',')[1];
-      originalWordCount = 0;
-      messages = [{ role: 'user', content: [
-        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
-        { type: 'text', text: 'Fais un résumé concis et intelligent de ce document en français.' }
-      ]}];
+      text = document.getElementById('text-input').value;
     } else {
-      originalWordCount = fileContent.trim().split(/\s+/).filter(Boolean).length;
-      messages = [{ role: 'user', content: `Fais un résumé concis et intelligent de ce contenu en français:\n\n${fileContent.slice(0, 15000)}` }];
+      text = fileContent;
     }
 
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': 'YOUR_API_KEY_HERE' },
-        body: JSON.stringify({ model: 'claude-opus', max_tokens: 1000, messages })
-      });
-      
-      if (!res.ok) {
-        throw new Error('Erreur API');
+    const originalWordCount = text.trim().split(/\s+/).filter(Boolean).length;
+    
+    // Algorithme de résumé simple mais efficace
+    const sentences = extractSentences(text);
+    
+    if (sentences.length === 0) {
+      document.getElementById('summary-text').textContent = "Le texte doit contenir au moins 2-3 phrases.";
+      resultCard.style.display = 'block';
+      loadBar.style.display = 'none';
+      btn.disabled = false;
+      btn.innerHTML = '<i class="ti ti-sparkles"></i> Résumer';
+      return;
+    }
+
+    // Extraire les mots-clés (mots fréquents)
+    const words = text.toLowerCase().match(/\b[a-zàâäçèéêëìíîïòóôõùúûüœæ]+\b/g) || [];
+    const wordFreq = {};
+    words.forEach(word => {
+      if (word.length > 4) { // Ignorer les mots courts
+        wordFreq[word] = (wordFreq[word] || 0) + 1;
       }
-      
-      const data = await res.json();
-      const text = data.content.map(b => b.text || '').join('');
-      document.getElementById('summary-text').textContent = text;
+    });
 
-      const sumWords = text.trim().split(/\s+/).filter(Boolean).length;
-      const pct = originalWordCount > 0 ? Math.round((1 - sumWords / originalWordCount) * 100) : 0;
-      document.getElementById('stat-words').textContent = originalWordCount > 0 ? originalWordCount.toLocaleString('fr-FR') : '—';
-      document.getElementById('stat-sum').textContent = sumWords.toLocaleString('fr-FR');
-      document.getElementById('stat-pct').textContent = pct > 0 ? pct + '%' : '—';
-      resultCard.style.display = 'block';
-    } catch (err) {
-      document.getElementById('summary-text').textContent = "Erreur : Veuillez vérifier que vous avez une clé API valide configurée.";
-      resultCard.style.display = 'block';
-    }
+    const keywordList = Object.entries(wordFreq)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(entry => entry[0]);
 
+    // Scorer chaque phrase
+    const scoredSentences = sentences.map((sentence, index) => ({
+      sentence: sentence.trim(),
+      score: calculateScore(sentence, keywordList),
+      index: index
+    }));
+
+    // Sélectionner les meilleures phrases (30% du total)
+    const summaryLength = Math.max(2, Math.ceil(sentences.length * 0.3));
+    const summary = scoredSentences
+      .sort((a, b) => b.score - a.score)
+      .slice(0, summaryLength)
+      .sort((a, b) => a.index - b.index)
+      .map(item => item.sentence)
+      .join(' ');
+
+    document.getElementById('summary-text').textContent = summary;
+
+    const sumWords = summary.trim().split(/\s+/).filter(Boolean).length;
+    const pct = originalWordCount > 0 ? Math.round((1 - sumWords / originalWordCount) * 100) : 0;
+    
+    document.getElementById('stat-words').textContent = originalWordCount.toLocaleString('fr-FR');
+    document.getElementById('stat-sum').textContent = sumWords.toLocaleString('fr-FR');
+    document.getElementById('stat-pct').textContent = pct > 0 ? pct + '%' : '0%';
+    
+    resultCard.style.display = 'block';
     loadBar.style.display = 'none';
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-sparkles"></i> Résumer';
