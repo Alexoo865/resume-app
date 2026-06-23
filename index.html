@@ -187,31 +187,6 @@
     .file-info .fsize { font-size: 12px; color: var(--text2); }
     .file-info button { background: none; border: none; cursor: pointer; color: var(--text2); padding: 4px; }
 
-    /* Options */
-    .options-row {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .opt-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
-    .opt-group label { font-size: 12px; color: var(--text2); font-weight: 500; }
-
-    select {
-      font-size: 13px;
-      padding: 8px 12px;
-      border-radius: var(--radius-sm);
-      border: 0.5px solid var(--border);
-      background: var(--surface2);
-      color: var(--text);
-      cursor: pointer;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    select:focus { border-color: var(--purple); }
-
     /* Button */
     #summarize-btn {
       width: 100%;
@@ -375,39 +350,12 @@
         <p><strong>Déposez un fichier ici</strong> ou cliquez pour choisir</p>
         <p style="font-size:12px; margin-top:4px;">PDF, TXT, MD — jusqu'à 10 Mo</p>
       </div>
-      <input type="file" id="file-input" accept=".pdf,.txt,.md" style="display:none">
+      <input type="file" id="file-input" accept=".pdf,.txt,.md,.doc,.docx" style="display:none">
       <div class="file-info" id="file-info">
         <i class="ti ti-file-text"></i>
         <span class="fname" id="fname"></span>
         <span class="fsize" id="fsize"></span>
         <button onclick="removeFile()" aria-label="Supprimer"><i class="ti ti-x" style="font-size:16px"></i></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Options card -->
-  <div class="card">
-    <div class="section-label"><i class="ti ti-adjustments-horizontal"></i> Options</div>
-    <div class="options-row">
-      <div class="opt-group">
-        <label for="style-sel">Style de résumé</label>
-        <select id="style-sel">
-          <option value="concis">Concis (3–5 phrases)</option>
-          <option value="detaille">Détaillé (paragraphe complet)</option>
-          <option value="puces">Points clés (liste à puces)</option>
-          <option value="academique">Académique</option>
-        </select>
-      </div>
-      <div class="opt-group">
-        <label for="lang-sel">Langue de sortie</label>
-        <select id="lang-sel">
-          <option value="français">Français</option>
-          <option value="anglais">Anglais</option>
-          <option value="espagnol">Espagnol</option>
-          <option value="allemand">Allemand</option>
-          <option value="arabe">Arabe</option>
-          <option value="portugais">Portugais</option>
-        </select>
       </div>
     </div>
   </div>
@@ -425,7 +373,7 @@
     </div>
     <div id="summary-text"></div>
     <div class="stats-row">
-      <div class="stat"><div class="val" id="stat-words">—</div><div class="lbl">mots dans le texte</div></div>
+      <div class="stat"><div class="val" id="stat-words">—</div><div class="lbl">mots texte</div></div>
       <div class="stat"><div class="val" id="stat-sum">—</div><div class="lbl">mots résumé</div></div>
       <div class="stat"><div class="val" id="stat-pct">—</div><div class="lbl">compression</div></div>
     </div>
@@ -490,15 +438,6 @@
   }
 
   async function summarize() {
-    const styleMap = {
-      concis: 'Écris un résumé très concis en 3 à 5 phrases.',
-      detaille: 'Écris un résumé détaillé en un ou deux paragraphes complets.',
-      puces: 'Présente les idées principales sous forme de liste à puces (utilise des tirets -).',
-      academique: 'Rédige un résumé de style académique, objectif et structuré.'
-    };
-
-    const style = document.getElementById('style-sel').value;
-    const lang = document.getElementById('lang-sel').value;
     const btn = document.getElementById('summarize-btn');
     const loadBar = document.getElementById('loading-bar');
     const resultCard = document.getElementById('result-card');
@@ -514,37 +453,42 @@
     if (currentTab === 'text') {
       const text = document.getElementById('text-input').value;
       originalWordCount = text.trim().split(/\s+/).filter(Boolean).length;
-      messages = [{ role: 'user', content: `Voici le texte à résumer :\n\n${text}\n\n${styleMap[style]} Réponds en ${lang}.` }];
+      messages = [{ role: 'user', content: `Fais un résumé concis et intelligent de ce texte en français:\n\n${text}` }];
     } else if (fileIsPdf) {
       const base64Data = fileContent.split(',')[1];
       originalWordCount = 0;
       messages = [{ role: 'user', content: [
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64Data } },
-        { type: 'text', text: `${styleMap[style]} Réponds en ${lang}.` }
+        { type: 'text', text: 'Fais un résumé concis et intelligent de ce document en français.' }
       ]}];
     } else {
       originalWordCount = fileContent.trim().split(/\s+/).filter(Boolean).length;
-      messages = [{ role: 'user', content: `Voici le contenu du fichier :\n\n${fileContent.slice(0, 15000)}\n\n${styleMap[style]} Réponds en ${lang}.` }];
+      messages = [{ role: 'user', content: `Fais un résumé concis et intelligent de ce contenu en français:\n\n${fileContent.slice(0, 15000)}` }];
     }
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, messages })
+        headers: { 'Content-Type': 'application/json', 'x-api-key': 'YOUR_API_KEY_HERE' },
+        body: JSON.stringify({ model: 'claude-opus', max_tokens: 1000, messages })
       });
+      
+      if (!res.ok) {
+        throw new Error('Erreur API');
+      }
+      
       const data = await res.json();
       const text = data.content.map(b => b.text || '').join('');
       document.getElementById('summary-text').textContent = text;
 
       const sumWords = text.trim().split(/\s+/).filter(Boolean).length;
-      const pct = originalWordCount > 0 ? Math.round((1 - sumWords / originalWordCount) * 100) : '—';
+      const pct = originalWordCount > 0 ? Math.round((1 - sumWords / originalWordCount) * 100) : 0;
       document.getElementById('stat-words').textContent = originalWordCount > 0 ? originalWordCount.toLocaleString('fr-FR') : '—';
       document.getElementById('stat-sum').textContent = sumWords.toLocaleString('fr-FR');
-      document.getElementById('stat-pct').textContent = typeof pct === 'number' && pct > 0 ? pct + '%' : '—';
+      document.getElementById('stat-pct').textContent = pct > 0 ? pct + '%' : '—';
       resultCard.style.display = 'block';
     } catch (err) {
-      document.getElementById('summary-text').textContent = "Une erreur s'est produite. Veuillez réessayer.";
+      document.getElementById('summary-text').textContent = "Erreur : Veuillez vérifier que vous avez une clé API valide configurée.";
       resultCard.style.display = 'block';
     }
 
